@@ -24,8 +24,8 @@ function(input, output) {
     message(paste("Pioreactor input OD file:", input$upload[1,4]))
   })
   
-  observeEvent(input$reactor_selection, {
-    message(paste("Pioreactor input OD file:", input$upload[1,4]))
+  observeEvent(input$process, {
+    message(paste("Pioreactor filtering:", input$reactor_selection))
   })
   
   #### Process the data for individual raw data plotting ####
@@ -44,6 +44,7 @@ function(input, output) {
   
   
   #### Process the data for individual growth curve analysis ####
+  ### *** TODO - Make this first a true false statement so that the process does not repeat more than once when pressing the bottom.
   read_data <- eventReactive(input$process, {
     # Read the path to the file uploaded by the user
     raw_pio_od_data_to_wide_frame(input$upload[1,4])
@@ -70,25 +71,20 @@ function(input, output) {
   extracted_data <- reactive(extract_mu_bootstraps(tidy_growth_result()))
    
   #### Construct plot ####
-  # Growth rate (summaried)
-  # output$plot <- renderPlot({
-  #   plot_growth_rates(summarised_data())
-  # }, res = 96,)
-   
-  # Raw data to summaried
+  # Raw data to summarised
   output$plot <- renderPlot({
-     plot_growth_rates(extracted_data())
+     plot_growth_rates(extracted_data(), input$reactor_groups)
    }, res = 96,)
    
    
   #### Allow download of data ####
-  # Summaried data
+  # Summarised data
   output$download_table <- downloadHandler(
     filename = function() {
       "Summaried_growth_rate_data.csv"
     },
     content = function(file) {
-       write.table(summarised_data(), file, row.names = F, col.names = T)
+       write.table(summarised_data(), file, row.names = F, col.names = T, sep = ",")
      }
   )
    
@@ -98,32 +94,8 @@ function(input, output) {
       "Raw_growth_rate_data_bootstrap_resamplings.csv"
     },
     content = function(file) {
-       write.table(extracted_data(), file, row.names = F, col.names = T)
+       write.table(extracted_data(), file, row.names = F, col.names = T, sep = ",")
      }
   )
-  
-  # dataset <- reactive({
-  #   diamonds[sample(nrow(diamonds), input$sampleSize),]
-  # })
-  # 
-  # output$plot <- renderPlot({
-  #   
-  #   p <- ggplot(dataset(), aes_string(x=input$x, y=input$y)) + geom_point()
-  #   
-  #   if (input$color != 'None')
-  #     p <- p + aes_string(color=input$color)
-  #   
-  #   facets <- paste(input$facet_row, '~', input$facet_col)
-  #   if (facets != '. ~ .')
-  #     p <- p + facet_grid(facets)
-  #   
-  #   if (input$jitter)
-  #     p <- p + geom_jitter()
-  #   if (input$smooth)
-  #     p <- p + geom_smooth()
-  #   
-  #   print(p)
-  #   
-  # }, height=700)
   
 }

@@ -10,27 +10,12 @@ fluidPage(
   titlePanel("Turbidostat growth Explorer"),
   
   sidebarPanel(
-    
     fileInput('upload', label = 'PioReactor OD table'),
-    # selectizeInput("reactor", 'Select reactors to process', c("All", names(dataset))),
     radioButtons('filt_strat', label = "Filtering strategy", choices = c('Remove', 'Keep')),
     uiOutput("UserFilters"),
-    # actionButton("plot_raw", "Plot raw growth curves"),
     textInput("reactor_groups", "Reactor Group - Members of a ground is comma seperated and groups are semicolon seperated (example P01,P02,P03;P04,P05,P06 is two groups if three reactors)"),
+    # Slider input for delta [default: 0.25]
     actionButton("process", "Process data"),
-    
-    # sliderInput('sampleSize', 'Sample Size', min=1, max=nrow(dataset),
-    #             value=min(1000, nrow(dataset)), step=500, round=0),
-    
-  #   selectInput('x', 'X', names(dataset)),
-  #   selectInput('y', 'Y', names(dataset), names(dataset)[[2]]),
-  #   selectInput('color', 'Color', c('None', names(dataset))),
-  #   
-  #   checkboxInput('jitter', 'Jitter'),
-  #   checkboxInput('smooth', 'Smooth'),
-  #   
-  #   selectInput('facet_row', 'Facet Row', c(None='.', names(dataset))),
-  #   selectInput('facet_col', 'Facet Column', c(None='.', names(dataset)))
   ),
   
   mainPanel(
@@ -38,6 +23,9 @@ fluidPage(
     # verbatimTextOutput("reactor"),
     # verbatimTextOutput("reactor_groups"),
     plotOutput('plot'),
+    # Add tabbox displaying the output plots where raw and used data are visualised.
+    # It should be noted that if there are too few utilised data then the delta can be lowered.
+    # Make possible to download the plots.
     downloadButton("download_raw_table", label = "Download Raw Data"),
     downloadButton("download_table", label = "Download Summarised Data"),
     tableOutput("table"),
