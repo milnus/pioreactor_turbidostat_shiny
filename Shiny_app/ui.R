@@ -22,10 +22,12 @@ fluidPage(
     plotOutput('raw_data_plot'),
     # verbatimTextOutput("reactor"),
     # verbatimTextOutput("reactor_groups"),
+    downloadButton("download_growth_rate_plot", label = "Download Growth Rate Plot"),
     plotOutput('plot'),
     # Add tabbox displaying the output plots where raw and used data are visualised.
     # It should be noted that if there are too few utilised data then the delta can be lowered.
     # Make possible to download the plots.
+    plotOutput('data_used_plot'),
     downloadButton("download_raw_table", label = "Download Raw Data"),
     downloadButton("download_table", label = "Download Summarised Data"),
     tableOutput("table"),

@@ -75,7 +75,13 @@ function(input, output) {
   output$plot <- renderPlot({
      plot_growth_rates(extracted_data(), input$reactor_groups)
    }, res = 96,)
-   
+  
+  
+  #### Plot growth intervals over raw data ####
+  output$data_used_plot <- renderPlot({
+    plot_utilised_data(peak_detection() , growth_curves())
+  }, res = 96)
+  # test_df <- plot_utilised_data(tt_peak_detect, tt_growth_curves)
    
   #### Allow download of data ####
   # Summarised data
@@ -97,5 +103,15 @@ function(input, output) {
        write.table(extracted_data(), file, row.names = F, col.names = T, sep = ",")
      }
   )
-  
+ 
+  # Growth rate plot download
+  output$download_growth_rate_plot <- downloadHandler(
+    filename = function() {
+      "Growth_rate_plot.svg"
+    },
+    content = function(file) {
+      ggsave(file, plot_growth_rates(extracted_data(), input$reactor_groups), device = 'svg', 
+             width = 33, height = 19, units = 'cm')
+    }
+  ) 
 }
