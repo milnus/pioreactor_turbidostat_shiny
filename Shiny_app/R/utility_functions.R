@@ -42,31 +42,6 @@ plot_raw_data <- function(raw_data, filter_vector, filt_strat){
   do.call(gridExtra::grid.arrange, c(ind_plots))
 }
 
-# Plotting each raw od curve
-plot_dataframe_raw <- function(dataframe, name, filter_vector, filt_strat) {
-  if(is.null(dataframe)){return()}
-
-  # Isolate reactor name for plot title
-  plot_title <- unlist(strsplit(name, '\\.'))[2]
-  
-  # Check if plot is filtered
-  if (any(grepl(plot_title, filter_vector, ignore.case = T))){
-    if (filt_strat == 'Keep'){
-      background_col <- 'green'
-    } else { background_col <- "red" }
-  } else { background_col <- "lightgrey" }
-  
-  dataframe <- dataframe[!is.na(dataframe[,2]),]
-  
-  p <- ggplot(dataframe, aes(x = timestamp, y = od_reading)) +
-    geom_point() +
-    ggtitle(plot_title) +
-    theme(axis.title = element_blank(),
-          panel.background = element_rect(fill = background_col, color = background_col))
-  
-  return(p)
-}
-
 # Filter out pioreactors based on user feedback
 filter_reactors <- function(pioreactor_data, pios_of_interest = c(), filt_strat){
   # Check if filtering is required
@@ -120,6 +95,54 @@ iqr_outlier_detection <- function(wide_pioreactor_od_frame, od_columns){
     }
   }
   return(wide_pioreactor_od_frame)
+}
+
+# Get the mean over a window of od values, discarding outliers
+roll_mean_summary <- function(hours, od_values, outliers){
+  non_NA <- !is.na(od_values)
+  hours_filt <- hours[non_NA & !outliers]
+  od_values_filt <- od_values[non_NA & !outliers]
+  
+  rolling_mean <- zoo::rollmean(od_values_filt, k = 11, fill = NA, align = 'center')
+  
+  return(rolling_mean)
+}
+
+# Consecutive negative OD difference detection
+# Define the function to count consecutive negative values with only one allowed positive number in a sequence
+count_consecutive_negatives <- function(vec, hours) {
+  n <- length(vec)
+  output <- integer(n)
+  
+  i <- 1
+  while (i <= n) {
+    if (vec[i] < 0) {
+      count <- 0
+      j <- i
+      positive_count <- 0
+      
+      while (j <= n && (vec[j] < 0 || (vec[j] > 0 && positive_count < 1 && j < n && vec[j - 1] < 0 && vec[j + 1] < 0))) {
+        if (vec[j] < 0 || (vec[j] > 0 && vec[j - 1] < 0 && vec[j + 1] < 0)) {
+          count <- count + 1
+          if (vec[j] > 0) {
+            positive_count <- positive_count + 1
+          }
+        }
+        j <- j + 1
+      }
+      
+      # Fill the output for the sequence
+      for (k in i:(j - 1)) {
+        output[k] <- count
+      }
+      
+      i <- j
+    } else {
+      i <- i + 1
+    }
+  }
+  
+  return(data.frame(hours, output))
 }
 
 # maximum and minimum detection algorithm from: https://gist.github.com/dgromer/ea5929435b8b8c728193
@@ -201,26 +224,106 @@ peakdet <- function(v, delta, x = NULL){
   list(maxtab = maxtab, mintab = mintab)
 }
 
+# Function to identify the most point dense od values:
+density_estimate_function <- function(od_values){
+  ## isolate peak from density function
+  dens_res <- density(od_values, na.rm = T)
+  
+  # Find max density
+  max_density <- which.max(dens_res$y)
+  
+  # Find density above and below max
+  above_density <- seq_along(dens_res$y)[seq_along(dens_res$y) > max_density]
+  below_density <- seq_along(dens_res$y)[seq_along(dens_res$y) < max_density]
+  
+  # Find where density approached zero
+  above_density_zero <- round(dens_res$y[above_density], digits = 0)  == 0
+  below_density_zero <- round(dens_res$y[below_density], digits = 0)  == 0
+  
+  # Find sequence from max to zero
+  above_seq_index <- above_density[min(which(above_density_zero == T))]
+  below_seq_index <- rev(below_density)[min(which(rev(below_density_zero) == T))]
+  
+  # Isolate peak
+  od_min_dens <- min(dens_res$x[below_seq_index:above_seq_index])
+  od_max_dens <- max(dens_res$x[below_seq_index:above_seq_index])
+  
+  od_delta <- od_max_dens - od_min_dens
+  
+  return(od_delta)
+}
+
+# Workflow for detecting outliers and peaks in a bunch of reactors
 peak_detection_workflow <- function(wide_pioreactor_od_frame){
+  print("[START] peak_detection_workflow")
+
   od_columns <- 2:ncol(wide_pioreactor_od_frame)
-
+  
+  # Filter outliers by inner quartile range of window of values
   wide_pioreactor_od_frame <- iqr_outlier_detection(wide_pioreactor_od_frame, od_columns)
-
+  
   # For each reactor, identify maximums and minimums in OD data, and add a column to hold this information
   for (i in od_columns){
     reactor_name <- unlist(strsplit(names(wide_pioreactor_od_frame)[i], '\\.'))[2]
-
-    peaks <- peakdet(wide_pioreactor_od_frame[!wide_pioreactor_od_frame[i+length(od_columns)],i], .25, wide_pioreactor_od_frame$hours[!wide_pioreactor_od_frame[,i+length(od_columns)]])
-
+    print(paste("    [PROCESSING]", reactor_name))
+    
+    od_values <- wide_pioreactor_od_frame[!wide_pioreactor_od_frame[i+length(od_columns)],i]
+    time_stamps <- wide_pioreactor_od_frame[!wide_pioreactor_od_frame[i+length(od_columns)],1]
+    time_stamps <- time_stamps[!is.na(od_values)]
+    od_values <- od_values[!is.na(od_values)]
+    
+    # Find the rolling mean for a window of od values for use in consecutive negative regions and peak detection
+    roll_mean_od <- roll_mean_summary(hours = wide_pioreactor_od_frame[,1], 
+                                      od_values = wide_pioreactor_od_frame[,i], 
+                                      outliers = wide_pioreactor_od_frame[,i+length(od_columns)])
+    
+    consecutive_neg_timestamps <- time_stamps[!is.na(roll_mean_od)]
+    roll_mean_od <- roll_mean_od[!is.na(roll_mean_od)]
+    
+    ## Remove consecutive decreasing OD readings (using the rolling mean)
+    dist_to_prev_od <- c(0, roll_mean_od[2:length(roll_mean_od)] - roll_mean_od[1:(length(roll_mean_od)-1)])
+    cumcount_decrease_od <- count_consecutive_negatives(dist_to_prev_od, consecutive_neg_timestamps)
+    # Binarise consecutive OD readings and add to wide_od_frame
+    consecutive_neg_od_column_name <- paste0(reactor_name, 'con_neg_od', collapse = '_')
+    wide_pioreactor_od_frame[,consecutive_neg_od_column_name] <- FALSE
+    wide_pioreactor_od_frame[wide_pioreactor_od_frame$hours %in% cumcount_decrease_od$hours, consecutive_neg_od_column_name] <- cumcount_decrease_od$output > 4
+    
+    # Copy the peak detect frame to insert the rolling od 
+    wide_pioreactor_od_frame_rolling_copy <- wide_pioreactor_od_frame[,c(1, i)]
+    
+    # Set outliers and consecutive negative difference measurements to NA
+    wide_pioreactor_od_frame_rolling_copy[wide_pioreactor_od_frame[i+length(od_columns)] | wide_pioreactor_od_frame[,consecutive_neg_od_column_name],2] <- NA
+    
+    # Identify the range of most point dense part
+    dense_od_range <- density_estimate_function(od_values = od_values)
+    print(paste("dense_od_range:", dense_od_range))
+    
+    log_base <- 2.75
+    # delta <- (log(dense_od_range+log_base, base = log_base)-1)/(00.75+dense_od_range) + 0.05
+    
+    delta <- dense_od_range/2
+    
+    print(paste("delta:", delta))
+    peaks <- peakdet(wide_pioreactor_od_frame_rolling_copy[,2], 
+                     delta, 
+                     wide_pioreactor_od_frame_rolling_copy[,1]) # Past good delta value: .25
+    
     peak_column_name <- paste0(reactor_name, 'peaks', collapse = '_')
-
+    
     wide_pioreactor_od_frame[,peak_column_name] <- NA
-
-
+    
+    
     wide_pioreactor_od_frame[wide_pioreactor_od_frame$hours %in% peaks$mintab$pos, peak_column_name] <- 'Minimum'
     wide_pioreactor_od_frame[wide_pioreactor_od_frame$hours %in% peaks$maxtab$pos, peak_column_name] <- 'Maximum'
   }
-
+  
+  
+  # Sort output frame
+  wide_pioreactor_od_frame <- wide_pioreactor_od_frame[,c(1,
+                                                          od_columns,
+                                                          grep("outliers", colnames(wide_pioreactor_od_frame)), 
+                                                          grep("peaks", colnames(wide_pioreactor_od_frame)), 
+                                                          grep("con_neg_od", colnames(wide_pioreactor_od_frame)))]
   return(wide_pioreactor_od_frame)
 }
 
@@ -273,9 +376,10 @@ isolate_growth_curves <- function(timestamps, od_readings, min_max_indication, o
 
 # Run through each pioreactor in dataset to isolate growth curves
 isolate_growth_curve_workflow <- function(wide_pioreactor_od_frame){
+  print("[START] isolate_growth_curve_workflow")
   return_growth_list <- list()
 
-  od_data_columns <- 2:(2+(((ncol(wide_pioreactor_od_frame)-1) %/% 3)-1))
+  od_data_columns <- 2:(2+(((ncol(wide_pioreactor_od_frame)-1) %/% 4)-1))
 
   for (i in od_data_columns){
     reactor_name <- unlist(strsplit(names(wide_pioreactor_od_frame)[i], '\\.'))[2]
@@ -352,7 +456,7 @@ tidy_growth_format <- function(growth_data, bootstaps = 500){
                                       ec50 = F,
                                       growth.thresh = 0.05, # *** Should this be increase or do we trust input data, as we have made peak detection and are running turbidostat?
                                       t0 = min(tt_grodata$time),
-                                      smooth.gc = 1)
+                                      smooth.gc = 1, suppress.messages = T)
 
     growth_data_list[[description]] <- table_group_growth_spline(tt_growth_rate$gcFit$gcTable)
 
@@ -426,6 +530,7 @@ extract_mu_bootstraps <- function(growth_list){
   return(growth_data)
 }
 
+# Plot summarised growth data
 plot_growth_rates <- function(summarised_data, reactor_grouping){
   if ((max(summarised_data$time_point, na.rm = T)) > 15){
     break_step <- 4
@@ -449,10 +554,6 @@ plot_growth_rates <- function(summarised_data, reactor_grouping){
     }
   }
   
-  print("Points")
-  # 
-  # reactor_grouping
-  
   # Set max time to x axis
   max_time <- max(summarised_data$time_point, na.rm = T)
   
@@ -471,9 +572,52 @@ plot_growth_rates <- function(summarised_data, reactor_grouping){
                        breaks = seq(0, max_time, break_step), labels = seq(0, max_time, break_step),
                        minor_breaks = seq(1, max_time, 1)) +
     scale_y_continuous(limits = c(0, NA)) +
-    theme(panel.grid.major.y = element_line(colour = 'lightgrey', linewidth = 0.2)) +
+    theme(panel.grid.major.y = element_line(colour = 'lightgrey', linewidth = 0.2),
+          strip.text.x = element_text(hjust = 0, margin=margin(l=0))) +
     labs(x = 'Hours')
   
   
   return(p)
+}
+
+# Plot data of which points were used for OD measurements
+plot_utilised_data <- function(wide_pioreactor_od_frame, indivudial_growth_curves){
+  print("[START] plot_utilised_data")
+  
+  reactor_names <- names(indivudial_growth_curves)
+  # column_names <- sapply(reactor_names, function(x) paste0(x, '.used'))
+  # wide_pioreactor_od_frame[,column_names] <- NA
+  
+  for (reactor in reactor_names){
+    # Add the column to indicate use of measurements
+    wide_pioreactor_od_frame[,paste0(reactor, '.used')] <- factor(x = NA, levels = 1:length(indivudial_growth_curves[[reactor]]))
+    for (growth_i in 1:length(indivudial_growth_curves[[reactor]])){
+      
+      wide_pioreactor_od_frame[wide_pioreactor_od_frame[,1] %in% indivudial_growth_curves[[reactor]][[growth_i]][,1] , ncol(wide_pioreactor_od_frame)] <- growth_i
+    }
+  }
+  
+  od_columns <- (ncol(wide_pioreactor_od_frame)-1) / 5
+  od_colnames <- names(wide_pioreactor_od_frame)
+  plot_list <- list()
+  for(i in 2:(od_columns+1)){
+    plot_data <- data.frame('hours' = wide_pioreactor_od_frame[,1],
+                            'od' = wide_pioreactor_od_frame[,i],
+                            'used' = wide_pioreactor_od_frame[,i+4*od_columns])
+    
+    growths <- max(as.numeric(levels(plot_data$used)), na.rm = T)
+    
+    plot_list[[od_colnames[i]]] <- ggplot(plot_data) +
+      geom_point(data = plot_data[is.na(plot_data$used),], aes(hours, od), colour = 'lightgrey') +
+      geom_point(data = plot_data[!is.na(plot_data$used),], aes(hours, od, colour = used)) +
+      scale_colour_manual(values = sample(rainbow(growths), 
+                                          size = growths, 
+                                          replace = F)) +
+      theme(legend.position = 'none') +
+      ggtitle(str_remove(names(wide_pioreactor_od_frame)[i], 'od_reading\\.'))
+  }
+  
+  do.call(gridExtra::grid.arrange, c(plot_list))
+  
+  return(wide_pioreactor_od_frame)
 }
