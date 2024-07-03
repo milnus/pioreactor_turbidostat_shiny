@@ -5,7 +5,9 @@ raw_pio_od_data_to_wide_frame <- function(od_readings_csv, reactors_oi = NULL){
   pioreactor_OD_data <- data.table::fread(od_readings_csv)
   
   # Convert time to hours
-  pioreactor_OD_data$hours <- difftime(pioreactor_OD_data$timestamp_localtime, min(pioreactor_OD_data$timestamp_localtime), units = 'hours')
+  pioreactor_OD_data$timestamp <- as.POSIXct(pioreactor_OD_data$timestamp)
+  pioreactor_OD_data$hours <- difftime(pioreactor_OD_data$timestamp, min(pioreactor_OD_data$timestamp), units = 'hours')
+  # pioreactor_OD_data$hours <- difftime(pioreactor_OD_data$timestamp_localtime, min(pioreactor_OD_data$timestamp_localtime), units = 'hours')
   
   # Set reactors that are of interest
   if (is.null(reactors_oi)){
