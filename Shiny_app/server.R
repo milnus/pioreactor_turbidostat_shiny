@@ -1,10 +1,6 @@
 library(shiny)
 library(ggplot2)
 
-#### Define functions to run the pioreactor turbidostat analysis ####
-
-
-
 #### Back-end server function ####
 function(input, output) {
   

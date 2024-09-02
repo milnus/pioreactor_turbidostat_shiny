@@ -16,6 +16,9 @@ fluidPage(
     textInput("reactor_groups", "Reactor Group - Members of a ground is comma seperated and groups are semicolon seperated (example P01,P02,P03;P04,P05,P06 is two groups if three reactors)"),
     # Slider input for delta [default: 0.25]
     actionButton("process", "Process data"),
+
+    # Insert version text
+    div("version 0.0.3")
   ),
   
   mainPanel(
