@@ -2,8 +2,7 @@ library(shiny)
 library(ggplot2)
 library(ggprism)
 library(QurvE)
-
-dataset <- data.frame(x= 1:10, y=LETTERS[1:10])
+options(shiny.maxRequestSize = 100*1024^2)
 
 fluidPage(
   
@@ -18,7 +17,7 @@ fluidPage(
     actionButton("process", "Process data"),
 
     # Insert version text
-    div("version 0.1.0")
+    div("version 0.1.1")
   ),
   
   mainPanel(
