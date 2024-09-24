@@ -1,5 +1,6 @@
 library(shiny)
 library(ggplot2)
+library(splines)
 
 #### Back-end server function ####
 function(input, output) {
@@ -48,13 +49,11 @@ function(input, output) {
   
   filtered_data <- reactive(filter_reactors(read_data(), input$reactor_selection, input$filt_strat))
   
-  peak_detection <- reactive(peak_detection_workflow(filtered_data()))
+  peak_detection <- reactive(peak_detection_spline_workflow(filtered_data()))
    
-  growth_curves <- reactive(isolate_growth_curve_workflow(peak_detection()))
+  growth_curves <- reactive(isolate_growth_curve_workflow_spline(peak_detection()))
    
   growth_curve_plot <- reactive(plot_ind_growths(growth_curves()))
-   
-  # tt <- reactive(renderTable(peak_detection))
    
   # output$plot <- renderPlot(growth_curve_plot())
    

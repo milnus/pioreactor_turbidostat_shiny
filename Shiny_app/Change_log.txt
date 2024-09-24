@@ -1,0 +1,14 @@
+Version	changes
+0.0.1	Initial implementation of the turbidostat growth analysis app with a functioning analysis framework.
+0.1.0	
+Change the version number to 0.1.0 to reflect the algorithm change. A rework of the underlying algorithm to identify periods of exponential growth has been conducted. This includes:
+
+New code to identify OD measurements recorded during periods of diluting the reactor. This algorithm aims on identify multiple consecutive OD measurements for which the OD values decreases. Periods of 5 or more decreasing OD measurements are filtered from the data. In a period of consecutively decreasing OD measurements, a single increasing measurement is allowed.
+A dynamic way of setting the delta of the peakdet is implemented. The delta is now set based on the density of OD measurements. The algorithms identified the most dense OD value measured, subsequently the density measure is used to identify where OD density approaches zero, both above and below the maximum density. The two identified points, where the measured OD density approach zero mark the interval in which the largest amount of OD values were observed. delta is defined as the range covering the max density of OD values divided by 2.
+An additional plot has been added to illustrate the data that is used for each phase of exponential growth.
+
+The column indicating time of OD measurements was changed from: timestamp_localtime  to timestamp, as the timestamp_localtime formatting was changed between PioReactor versions. So to ensure compatibility with data produced by experiments from prior versions of PioReactor software the 'timestamp' columns is now used.
+
+Grouping of reactors is now enabled and will illustrate growth data for each reactor grouping in one plot, instead of each reactor in a separate plot.
+0.1.1	Allow the upload of files up to 100 MB
+1.0.0 Multiple elements in the detection of outliers and isolation of individual growth curves has changed. Spline regression is now relied on to a larger extend to identify outliers and reducing noise of the OD measurements. New algorithms has been implemented to isolate each of the individual exponential growth curves from the turbidostat data.
