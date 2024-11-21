@@ -8,7 +8,8 @@ plot_growth_rates_summary_data <- function(summarised_data){
   
   p <- ggplot(summarised_data, aes(time_point, mean_mu, colour = reactor)) +
     geom_smooth(method = 'loess', se = F, span = 1.0) +
-    geom_linerange(aes(ymax = mean_mu + sd_mu, ymin = mean_mu - sd_mu)) +
+    # geom_linerange(aes(ymax = mean_mu + sd_mu, ymin = mean_mu - sd_mu)) +
+    geom_linerange(aes(ymin = boot_low_bound, ymax = boot_upper_bound)) +
     geom_point() +
     # geom_line() +
     ggprism::theme_prism() +

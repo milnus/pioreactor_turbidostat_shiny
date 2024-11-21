@@ -16,6 +16,9 @@ end_of_initial_exp_growth <- function(od_values){
     if (i > length(od_values)){
       increase_factor <- increase_factor - 1
       i <- 5
+      if (increase_factor < 0){
+        warning("increase_factor in end_of_initial_exp_growth reached zero")
+      }
     }
   }
   

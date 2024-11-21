@@ -1,4 +1,5 @@
 peak_detection_spline_workflow <- function(wide_pioreactor_od_frame){
+  
   od_columns <- 2:ncol(wide_pioreactor_od_frame)
   wide_pioreactor_od_frame <- spline_outlier_detection(wide_pioreactor_od_frame, od_columns)
   wide_pioreactor_od_frame <- iqr_outlier_masking(wide_pioreactor_od_frame, od_columns)
@@ -64,5 +65,6 @@ peak_detection_spline_workflow <- function(wide_pioreactor_od_frame){
                                                           grep("outliers", colnames(wide_pioreactor_od_frame)),
                                                           grep("segments", colnames(wide_pioreactor_od_frame)),
                                                           grep("con_neg_od", colnames(wide_pioreactor_od_frame)))]
+  print("[peak_detection_spline_workflow] - DONE")
   return(wide_pioreactor_od_frame)
 }

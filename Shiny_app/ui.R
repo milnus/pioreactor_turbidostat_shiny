@@ -17,7 +17,7 @@ fluidPage(
     actionButton("process", "Process data"),
 
     # Insert version text
-    div("version 0.1.1")
+    div("version 1.0.1")
   ),
   
   mainPanel(

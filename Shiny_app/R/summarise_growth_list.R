@@ -6,8 +6,8 @@ summarise_growth_list <- function(growth_list, plot_data = F){
     # Calculate statistics for growth curves
     mu_mean <- aggregate.data.frame(growth_list[[reactor]]$growth_data$mu, by = list(growth_list[[reactor]]$growth_data$growth_phase), mean)
     mu_median <- aggregate.data.frame(growth_list[[reactor]]$growth_data$mu, by = list(growth_list[[reactor]]$growth_data$growth_phase), median)
-    mu_lower_bound <- aggregate.data.frame(growth_list[[reactor]]$growth_data$mu, by = list(growth_list[[reactor]]$growth_data$growth_phase), function(x) quantile(x, 0.975, na.rm=T)) #*** Use the bootstarp confidence intervall instead of sd
-    mu_upper_bound <- aggregate.data.frame(growth_list[[reactor]]$growth_data$mu, by = list(growth_list[[reactor]]$growth_data$growth_phase), function(x) quantile(x, 0.025, na.rm=T)) #*** Use the bootstarp confidence intervall instead of sd
+    mu_lower_bound <- aggregate.data.frame(growth_list[[reactor]]$growth_data$mu, by = list(growth_list[[reactor]]$growth_data$growth_phase), function(x) quantile(x, 0.025, na.rm=T)) #*** Use the bootstarp confidence intervall instead of sd
+    mu_upper_bound <- aggregate.data.frame(growth_list[[reactor]]$growth_data$mu, by = list(growth_list[[reactor]]$growth_data$growth_phase), function(x) quantile(x, 0.975, na.rm=T)) #*** Use the bootstarp confidence intervall instead of sd
     mu_sd <- aggregate.data.frame(growth_list[[reactor]]$growth_data$mu, by = list(growth_list[[reactor]]$growth_data$growth_phase), sd) #*** Use the bootstarp confidence intervall instead of sd
     
     # Summarise data into table
